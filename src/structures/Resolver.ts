@@ -40,7 +40,27 @@ export default class Resolver {
             return this.buildResponse(e.body?.error.message === "invalid id" ? "NO_MATCHES" : "LOAD_FAILED", [], undefined, e.body?.error.message ?? e.message);
         }
     }
+    
+    public async getArtist(id: string): Promise<LavalinkTrackResponse> {
+        try {
+            if (!this.token) throw new Error("No Spotify access token.");
+            // @ts-expect-error 2322
+            const { body: spotifyArtist }: { body: spotifyArtist } = await request
+                .get(`${this.client.baseURL}/artists/${id}`)
+                .set("Authorization", this.token);
 
+            const unresolvedArtistTracks = spotifyArtist?.tracks.items.map(track => this.buildUnresolved(track)) ?? [];
+
+            return this.buildResponse(
+                "PLAYLIST_LOADED",
+                this.autoResolve ? (await Promise.all(unresolvedArtistTracks.map(x => x.resolve()))).filter(Boolean) as LavalinkTrack[] : unresolvedArtistTracks,
+                spotifyArtist.name
+            );
+        } catch (e) {
+            return this.buildResponse(e.body?.error.message === "invalid id" ? "NO_MATCHES" : "LOAD_FAILED", [], undefined, e.body?.error.message ?? e.message);
+        }
+    }
+    
     public async getPlaylist(id: string): Promise<LavalinkTrackResponse> {
         try {
             if (!this.token) throw new Error("No Spotify access token.");
